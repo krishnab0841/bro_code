@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="calculator" class="calculator">
+        <!-- Display -->
+        <div id="display" class="display" aria-live="polite" role="status">0</div>
+
+        <!-- Buttons -->
+        <div class="buttons">
+            <!-- Row 1 -->
+            <button class="btn" data-action="clear" aria-label="Clear">C</button>
+            <button class="btn" data-action="backspace" aria-label="Backspace">←</button>
+            <button class="btn" data-action="operator" aria-label="Divide">/</button>
+            <button class="btn" data-action="operator" aria-label="Multiply">*</button>
+
+            <!-- Row 2 -->
+            <button class="btn" data-action="digit" aria-label="Seven">7</button>
+            <button class="btn" data-action="digit" aria-label="Eight">8</button>
+            <button class="btn" data-action="digit" aria-label="Nine">9</button>
+            <button class="btn" data-action="operator" aria-label="Subtract">-</button>
+
+            <!-- Row 3 -->
+            <button class="btn" data-action="digit" aria-label="Four">4</button>
+            <button class="btn" data-action="digit" aria-label="Five">5</button>
+            <button class="btn" data-action="digit" aria-label="Six">6</button>
+            <button class="btn" data-action="operator" aria-label="Add">+</button>
+
+            <!-- Row 4 -->
+            <button class="btn" data-action="digit" aria-label="One">1</button>
+            <button class="btn" data-action="digit" aria-label="Two">2</button>
+            <button class="btn" data-action="digit" aria-label="Three">3</button>
+            <button class="btn" data-action="equals" aria-label="Equals">=</button>
+
+            <!-- Row 5 -->
+            <button class="btn" data-action="digit" aria-label="Zero" style="grid-column: span 2;">0</button>
+            <button class="btn" data-action="decimal" aria-label="Decimal point">.</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
