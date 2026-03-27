@@ -106,26 +106,31 @@ The **Coder Agent** iterates through each `ImplementationTask` sequentially usin
 
 ### System Design — How Agents Communicate
 
-```mermaid
-graph TD
-    A[User Prompt] -->|"String"| B[Planner Agent]
-    B -->|"Plan (Pydantic Model)"| C[Architect Agent]
-    C -->|"TaskPlan (Pydantic Model)"| D[Coder Agent]
-    D -->|"Loop: next task"| D
-    D -->|"status: DONE"| E[End]
+```
+                        ┌─────────────────────────────────────────────────┐
+                        │         Shared State (Python Dict)              │
+                        │                                                 │
+                        │  user_prompt ─── plan ─── task_plan ─── status  │
+                        │                          coder_state            │
+                        └─────────────────────────────────────────────────┘
+                              ▲              ▲            ▲          ▲
+                              │              │            │          │
+                           writes          writes       writes     writes
+                              │              │            │          │
 
-    subgraph "Shared State (Python Dict)"
-        F[user_prompt]
-        G[plan: Plan]
-        H[task_plan: TaskPlan]
-        I[coder_state: CoderState]
-        J[status: str]
-    end
-
-    B -.->|writes| G
-    C -.->|writes| H
-    D -.->|writes| I
-    D -.->|writes| J
+  ┌────────────┐    str    ┌──────────┐  Plan   ┌───────────┐  TaskPlan  ┌───────────┐
+  │            │──────────▶│          │────────▶│           │──────────▶│           │
+  │ User Prompt│           │ Planner  │         │ Architect │           │  Coder    │──┐
+  │            │           │  Agent   │         │   Agent   │           │  Agent    │  │
+  └────────────┘           └──────────┘         └───────────┘           └─────┬─────┘  │
+                                                                              │        │
+                                                                              │ loop   │
+                                                                              └────────┘
+                                                                              │
+                                                                         status: DONE
+                                                                              │
+                                                                              ▼
+                                                                          [ END ]
 ```
 
 **Key Design Decisions:**
