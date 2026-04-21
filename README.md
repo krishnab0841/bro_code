@@ -6,12 +6,13 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Orchestration-orange.svg)](https://github.com/langchain-ai/langgraph)
-[![Groq](https://img.shields.io/badge/Groq-LLM%20API-green.svg)](https://groq.com/)
+[![Anthropic Claude](https://img.shields.io/badge/Claude-Sonnet_4-blueviolet.svg)](https://www.anthropic.com/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Bro Code** is a multi-agent AI coding assistant that takes a single natural-language prompt and autonomously plans, architects, and writes an entire working project — file by file — just like a real engineering team.
+> **Bro Code** is a multi-agent AI coding assistant with a **Lovable.dev-style web UI**. Type a prompt, watch three AI agents plan, architect, and write your project in real-time — with live file previews in the browser.
 
-[Features](#-features) · [Architecture](#-architecture) · [How It Works](#-how-it-works) · [Getting Started](#-getting-started) · [Examples](#-example-prompts--output) · [Future Scope](#-future-scope)
+[Features](#-features) · [Architecture](#-architecture) · [Quick Start](#-quick-start) · [Examples](#-example-prompts--output) · [Future Scope](#-future-scope)
 
 </div>
 
@@ -21,88 +22,76 @@
 
 Building software from scratch is time-consuming, even for experienced developers. You need to decide on file structure, plan the architecture, wire up dependencies, and implement every module — all before shipping a single feature.
 
-**Bro Code eliminates this overhead.** Describe what you want in plain English, and a team of three autonomous AI agents collaborates to deliver a production-ready project scaffold in seconds.
+**Bro Code eliminates this overhead.** Describe what you want in plain English, and a team of three autonomous AI agents collaborates to deliver a production-ready project scaffold in seconds — with a live preview right in your browser.
 
 ---
 
 ## ✨ Features
 
 - 🧠 **Multi-Agent System** — Three specialized AI agents (Planner, Architect, Coder) collaborate through a directed graph pipeline
-- 🔄 **Autonomous Pipeline** — End-to-end code generation from natural language with zero human intervention
-- 📂 **Real File Output** — Writes actual project files to disk, not just console output
+- 🌐 **Web UI** — Lovable.dev-style browser interface with live file tree, streaming agent logs, and iframe preview
+- 🔄 **Real-Time Streaming** — Server-Sent Events (SSE) stream agent progress to the browser as it happens
+- 📂 **Real File Output** — Writes actual project files to disk
 - 🏗️ **Structured Planning** — Pydantic-validated plans & task breakdowns ensure well-organized projects
 - 🛡️ **Sandboxed Execution** — All file operations are confined to a `generated_project/` directory for safety
-- ⚡ **Blazing-Fast Inference** — Powered by Groq's ultra-low-latency LLM API
-- 🔧 **Tool-Using Coder Agent** — Uses LangGraph's ReAct agent with file I/O tools (read, write, list, navigate)
+- ⚡ **Powered by Claude** — Uses Anthropic's Claude Sonnet 4 for high-quality code generation
+- 🔧 **Tool-Using Coder Agent** — Uses LangGraph's ReAct agent with file I/O tools
 - 🎯 **Dependency-Aware Task Ordering** — Architect ensures files are implemented in the correct order
+- 🖥️ **CLI Mode** — Still works from the command line with `python main.py`
 
 ---
 
 ## 🏗️ Architecture
 
-Bro Code uses **LangGraph** to orchestrate a stateful, directed graph of three specialized AI agents:
-
 ```
-┌──────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│              │      │                  │      │                  │
-│   Planner    │─────▶│   Architect      │─────▶│   Coder          │
-│   Agent      │      │   Agent          │      │   Agent (ReAct)  │
-│              │      │                  │      │                  │
-└──────────────┘      └──────────────────┘      └────────┬─────────┘
-                                                         │    ▲
-                                                         │    │
-                                                         ▼    │
-                                                   ┌──────────────┐
-                                                   │  Loop until  │
-                                                   │  all tasks   │
-                                                   │  complete    │
-                                                   └──────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                     BROWSER (React + Vite)                         │
+│  ┌──────────┐  ┌──────────────────────┐  ┌─────────────────────┐  │
+│  │ File Tree│  │ Prompt + Agent Logs  │  │  Live Preview       │  │
+│  │          │  │       (SSE)          │  │  (iframe)           │  │
+│  └──────────┘  └──────────────────────┘  └─────────────────────┘  │
+└─────────────────────────┬──────────────────────────────────────────┘
+                          │ HTTP + SSE
+┌─────────────────────────┴──────────────────────────────────────────┐
+│                   FastAPI Backend (server.py)                       │
+│   POST /api/generate → job_id    GET /api/stream/{id} → SSE       │
+│   GET /api/files                 DELETE /api/reset                 │
+│   /preview/* → StaticFiles                                         │
+└─────────────────────────┬──────────────────────────────────────────┘
+                          │ Thread + Queue
+┌─────────────────────────┴──────────────────────────────────────────┐
+│                    LangGraph Agent Pipeline                         │
+│                                                                     │
+│  ┌──────────┐  Plan   ┌───────────┐  TaskPlan  ┌──────────┐       │
+│  │ Planner  │────────▶│ Architect │───────────▶│  Coder   │──┐    │
+│  │  Agent   │         │   Agent   │            │  Agent   │  │    │
+│  └──────────┘         └───────────┘            └────┬─────┘  │    │
+│                                                     │ loop   │    │
+│                                                     └────────┘    │
+│                                                     │             │
+│                                                  [DONE]           │
+└────────────────────────────────────────────────────────────────────┘
 ```
-
-<div align="center">
-    <img src="resources/coder_buddy_diagram.png" alt="Bro Code Agent Architecture" width="80%"/>
-    <br/>
-    <em>LangGraph execution flow — auto-generated from the compiled state graph</em>
-</div>
 
 ### Agent Roles
 
 | Agent | Role | Input | Output |
 |-------|------|-------|--------|
-| **🗺️ Planner** | Analyzes the user prompt and produces a high-level project plan | User's natural language prompt | `Plan` — app name, description, tech stack, features, and file list |
-| **📐 Architect** | Breaks the plan into ordered, dependency-aware engineering tasks | `Plan` object | `TaskPlan` — ordered list of `ImplementationTask` items with file paths and detailed descriptions |
+| **🗺️ Planner** | Analyzes the user prompt and produces a high-level project plan | User's natural language prompt | `Plan` — app name, description, tech stack, features, file list |
+| **📐 Architect** | Breaks the plan into ordered, dependency-aware engineering tasks | `Plan` object | `TaskPlan` — ordered `ImplementationTask` items with file paths and detailed descriptions |
 | **💻 Coder** | Implements each task using LangGraph's ReAct agent with file tools | `TaskPlan` + current task index | Actual project files written to disk |
 
 ---
 
 ## 🔄 How It Works
 
-### Step-by-Step Pipeline
+### Agent Data Flow
 
-```
-User Prompt ──▶ Planner ──▶ Architect ──▶ Coder (loop) ──▶ Complete Project
-```
-
-#### Step 1 — Planning
-The **Planner Agent** receives the user's natural-language prompt and uses the LLM with **Pydantic structured output** to generate a `Plan` object containing:
-- Project name and description
-- Technology stack
-- List of features
-- Files to create (with paths and purposes)
-
-#### Step 2 — Architecture
-The **Architect Agent** takes the `Plan` and produces a `TaskPlan` — an ordered list of `ImplementationTask` objects. Each task specifies:
-- The exact file path to create or modify
-- A detailed description including function signatures, variable names, imports, and integration points
-- Tasks are ordered so that dependencies are implemented first
-
-#### Step 3 — Code Generation
-The **Coder Agent** iterates through each `ImplementationTask` sequentially using LangGraph's `create_react_agent`. For each task, it:
-1. Reads any existing file content to maintain compatibility
-2. Generates the implementation using the LLM
-3. Writes the file to disk using the `write_file` tool
-4. Advances to the next task
-5. **Loops back** to itself until all tasks are complete, then terminates
+1. **User types a prompt** in the web UI (or CLI)
+2. **Planner Agent** converts the prompt into a `Plan` (Pydantic model: name, tech stack, features, file list)
+3. **Architect Agent** breaks the `Plan` into an ordered `TaskPlan` with self-contained implementation tasks
+4. **Coder Agent (ReAct)** iterates through each task, reads existing files, generates code, and writes files to disk
+5. **Events stream** to the browser via SSE — agent logs appear in real-time, files appear in the file tree, and the preview iframe loads automatically
 
 ### System Design — How Agents Communicate
 
@@ -114,33 +103,21 @@ The **Coder Agent** iterates through each `ImplementationTask` sequentially usin
                         │                          coder_state            │
                         └─────────────────────────────────────────────────┘
                               ▲              ▲            ▲          ▲
-                              │              │            │          │
                            writes          writes       writes     writes
-                              │              │            │          │
 
-  ┌────────────┐    str    ┌──────────┐  Plan   ┌───────────┐  TaskPlan  ┌───────────┐
-  │            │──────────▶│          │────────▶│           │──────────▶│           │
-  │ User Prompt│           │ Planner  │         │ Architect │           │  Coder    │──┐
-  │            │           │  Agent   │         │   Agent   │           │  Agent    │  │
-  └────────────┘           └──────────┘         └───────────┘           └─────┬─────┘  │
-                                                                              │        │
-                                                                              │ loop   │
-                                                                              └────────┘
-                                                                              │
-                                                                         status: DONE
-                                                                              │
-                                                                              ▼
-                                                                          [ END ]
+  User Prompt ──▶ Planner Agent ──▶ Architect Agent ──▶ Coder Agent ──▶ [DONE]
+                                                            │    ▲
+                                                            └────┘ (loop)
 ```
 
 **Key Design Decisions:**
 
-- **LangGraph `StateGraph`** manages agent orchestration — each agent is a node, edges define the execution flow
-- **Shared state dictionary** is passed between agents; each agent reads from and writes to this shared context
-- **Conditional edges** on the Coder node enable a self-loop: the Coder checks if more tasks remain and either loops back or routes to `END`
+- **LangGraph `StateGraph`** manages agent orchestration — each agent is a node, edges define execution flow
+- **Thread + Queue pattern** bridges synchronous LangGraph with async FastAPI for SSE streaming
+- **Job-based SSE** — POST starts a background thread, returns a `job_id`; GET streams events for that job
 - **Pydantic models** (`Plan`, `TaskPlan`, `CoderState`) ensure data integrity at every handoff
-- **ReAct pattern** for the Coder agent allows it to reason about the task and use tools (read/write files) autonomously
-- **Path sandboxing** via `safe_path_for_project()` prevents the AI from writing outside the designated project directory
+- **ReAct pattern** for the Coder agent allows it to reason and use tools autonomously
+- **Path sandboxing** via `safe_path_for_project()` prevents writes outside the project directory
 
 ---
 
@@ -150,21 +127,25 @@ The **Coder Agent** iterates through each `ImplementationTask` sequentially usin
 |-----------|---------|
 | **Python 3.11+** | Core language |
 | **LangGraph** | Multi-agent orchestration via stateful directed graphs |
-| **LangChain** | LLM abstraction layer and tool framework |
-| **Groq API** | Ultra-fast LLM inference |
+| **LangChain** | LLM abstraction and tool framework |
+| **Anthropic Claude** | Sonnet 4 for high-quality code generation |
+| **FastAPI** | Backend REST API + SSE streaming |
+| **React 19** | Frontend UI framework |
+| **Vite** | Frontend build tool with HMR and proxying |
 | **Pydantic** | Structured output validation and state management |
+| **SSE (Server-Sent Events)** | Real-time agent-to-browser streaming |
 | **uv** | Fast Python package & environment management |
-| **python-dotenv** | Environment variable management |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Python 3.11+** — [Download here](https://www.python.org/downloads/)
+- **Node.js 18+** — [Download here](https://nodejs.org/)
 - **uv** (recommended) — [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
-- **Groq API Key** — [Get your free API key](https://console.groq.com/keys)
+- **Anthropic API Key** — [Get your API key](https://console.anthropic.com/)
 
 ### Installation
 
@@ -173,40 +154,53 @@ The **Coder Agent** iterates through each `ImplementationTask` sequentially usin
 git clone https://github.com/krishnab0841/bro_code.git
 cd bro_code
 
-# 2. Create and activate a virtual environment
+# 2. Python setup
 uv venv
-# On Windows:
+# Windows:
 .venv\Scripts\activate
-# On macOS/Linux:
+# macOS/Linux:
 source .venv/bin/activate
 
-# 3. Install dependencies
 uv pip install -r pyproject.toml
 
-# 4. Set up environment variables
-#    Create a .env file in the project root and add:
-echo GROQ_API_KEY=your_groq_api_key_here > .env
+# 3. Frontend setup
+cd frontend
+npm install
+cd ..
+
+# 4. Environment variables
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
 ```
 
-> **Note:** This project uses `pyproject.toml` as the single source of truth for dependencies. A `requirements.txt` is also provided for compatibility with non-uv workflows (`pip install -r requirements.txt`).
+### Running the App
 
-### Usage
-
+**Option 1 — Quick start script:**
 ```bash
-# Run the assistant
+# Windows:
+start.bat
+
+# macOS/Linux:
+chmod +x start.sh
+./start.sh
+```
+
+**Option 2 — Manual (two terminals):**
+```bash
+# Terminal 1: Backend
+uvicorn backend.server:app --reload --port 8000
+
+# Terminal 2: Frontend
+cd frontend
+npm run dev
+```
+
+Then open **http://localhost:5173** in your browser.
+
+**Option 3 — CLI mode** (no web UI):
+```bash
 python main.py
-
-# With a custom recursion limit (default: 100)
-python main.py --recursion-limit 150
 ```
-
-You'll be prompted to enter your project description:
-
-```
-Enter your project prompt: Create a modern to-do list app using HTML, CSS, and JavaScript
-```
-
-The agents will then plan, architect, and generate your project into the `generated_project/` directory.
 
 ---
 
@@ -233,65 +227,9 @@ generated_project/
 └── app.js          # Full CRUD logic — add, complete, delete tasks
 ```
 
-**Sample `index.html` snippet:**
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern To-Do App</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>📝 My Tasks</h1>
-        <div class="input-group">
-            <input type="text" id="taskInput" placeholder="Add a new task...">
-            <button id="addBtn">Add</button>
-        </div>
-        <ul id="taskList"></ul>
-    </div>
-    <script src="app.js"></script>
-</body>
-</html>
-```
-
-**Sample `app.js` snippet:**
-```javascript
-const taskInput = document.getElementById('taskInput');
-const addBtn = document.getElementById('addBtn');
-const taskList = document.getElementById('taskList');
-
-addBtn.addEventListener('click', () => {
-    const text = taskInput.value.trim();
-    if (text) {
-        addTask(text);
-        taskInput.value = '';
-    }
-});
-
-function addTask(text) {
-    const li = document.createElement('li');
-    li.innerHTML = `
-        <span class="task-text">${text}</span>
-        <div class="task-actions">
-            <button class="complete-btn" onclick="toggleComplete(this)">✔</button>
-            <button class="delete-btn" onclick="deleteTask(this)">✖</button>
-        </div>
-    `;
-    taskList.appendChild(li);
-}
-```
-
 ---
 
 ## 🎬 Demo
-
-<!-- 
-Add a GIF or video recording here:
-![Bro Code Demo](resources/demo.gif) 
--->
 
 > 🚧 **Demo GIF/video coming soon!** Run the project locally to see the agents in action.
 
@@ -300,11 +238,10 @@ Add a GIF or video recording here:
 ## ⚠️ Limitations
 
 - **No debugging or testing** — Generated code is not automatically tested or validated
-- **Single prompt context** — Agents don't retain memory between runs; each execution starts fresh
-- **LLM-dependent quality** — Output quality depends on the underlying model's capabilities
+- **Single prompt context** — Agents don't retain memory between runs
+- **LLM-dependent quality** — Output quality depends on Claude's capabilities
 - **No interactive editing** — Cannot iteratively refine generated code through conversation
-- **File types** — Best suited for web projects and small-to-medium Python applications
-- **Rate limits** — Subject to Groq API rate limits on free-tier accounts
+- **Rate limits** — Subject to Anthropic API rate limits
 
 ---
 
@@ -312,24 +249,59 @@ Add a GIF or video recording here:
 
 | Feature | Description |
 |---------|-------------|
-| 🧠 **Memory-Enabled Agents** | Persistent memory across sessions using vector stores for context-aware generation |
-| 🐛 **Debugging Agent** | A fourth agent that reviews generated code, catches errors, and auto-fixes issues |
-| 🧪 **Testing Agent** | Automatically generates and runs unit tests for every generated file |
-| 🌐 **Web UI** | Streamlit or Next.js frontend for a visual, interactive experience |
-| 📦 **Deployment Agent** | Auto-generates Dockerfiles, CI/CD configs, and deploys to cloud providers |
-| 🔁 **Iterative Refinement** | Chat-based follow-up prompts to modify and extend generated projects |
-| 📊 **Code Quality Scoring** | Automated linting, complexity analysis, and quality reports for generated code |
-| 🗂️ **Template Library** | Pre-built project templates for common patterns (REST API, full-stack app, CLI tool) |
+| 🧠 **Memory-Enabled Agents** | Persistent memory across sessions using vector stores |
+| 🐛 **Debugging Agent** | Reviews generated code, catches errors, auto-fixes issues |
+| 🧪 **Testing Agent** | Generates and runs unit tests for every generated file |
+| 📦 **Deployment Agent** | Auto-generates Dockerfiles, CI/CD configs, deploys to cloud |
+| 🔁 **Iterative Refinement** | Chat-based follow-up prompts to modify generated projects |
+| 📊 **Code Quality Scoring** | Automated linting, complexity analysis, quality reports |
+| 🗂️ **Template Library** | Pre-built project templates for common patterns |
 
 ---
 
 ## 📝 Resume-Ready Description
 
-Use these bullet points on your resume to showcase this project:
+> - **Engineered a multi-agent AI coding assistant** using LangGraph and LangChain that autonomously generates full project scaffolds from natural-language prompts, featuring a Lovable.dev-style React web UI with real-time SSE streaming and live preview
+> - **Designed a full-stack agent orchestration system** with FastAPI backend, thread-safe SSE event streaming, Pydantic-validated inter-agent communication, and sandboxed file I/O — powered by Anthropic Claude Sonnet 4
+> - **Built an end-to-end autonomous code generation pipeline** featuring three coordinated AI agents (Planner → Architect → Coder), conditional graph execution, ReAct-pattern tool usage, and a browser-based live project preview
 
-> - **Engineered a multi-agent AI coding assistant** using LangGraph and LangChain that autonomously generates full project scaffolds from natural-language prompts, orchestrating Planner, Architect, and Coder agents through a stateful directed graph pipeline
-> - **Designed and implemented a structured agent communication protocol** using Pydantic models for type-safe data flow between agents, with conditional graph edges enabling iterative code generation and sandboxed file I/O for secure execution
-> - **Built an end-to-end autonomous code generation system** powered by Groq's LLM API, featuring dependency-aware task ordering, ReAct-pattern tool usage, and path-sandboxed file operations — demonstrating applied expertise in AI agent design, LLM orchestration, and system architecture
+---
+
+## 📁 Project Structure
+
+```
+bro_code/
+├── backend/
+│   ├── __init__.py
+│   └── server.py              ← FastAPI app with SSE streaming
+├── agent/
+│   ├── __init__.py
+│   ├── graph.py               ← LangGraph state graph + build_graph() factory
+│   ├── prompts.py             ← System & user prompt templates
+│   ├── states.py              ← Pydantic models (Plan, TaskPlan, CoderState)
+│   └── tools.py               ← File tools with SSE event pushing
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js         ← Proxy /api and /preview to backend
+│   ├── index.html
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx            ← Main 3-panel layout + SSE logic
+│       ├── index.css          ← Dark theme styles
+│       └── components/
+│           ├── FileTree.jsx
+│           ├── AgentLog.jsx
+│           ├── PreviewPanel.jsx
+│           └── FileModal.jsx
+├── generated_project/         ← AI writes files here, served as /preview
+├── main.py                    ← CLI entry point (preserved)
+├── start.bat                  ← Windows startup script
+├── start.sh                   ← Unix startup script
+├── pyproject.toml
+├── requirements.txt
+├── .env.example
+└── README.md
+```
 
 ---
 
@@ -338,49 +310,10 @@ Use these bullet points on your resume to showcase this project:
 Contributions are welcome! Here's how to get started:
 
 1. **Fork** the repository
-2. **Create** your feature branch:
-   ```bash
-   git checkout -b feature/my-awesome-feature
-   ```
-3. **Commit** your changes:
-   ```bash
-   git commit -m "feat: add my awesome feature"
-   ```
-4. **Push** to the branch:
-   ```bash
-   git push origin feature/my-awesome-feature
-   ```
+2. **Create** your feature branch: `git checkout -b feature/my-awesome-feature`
+3. **Commit** your changes: `git commit -m "feat: add my awesome feature"`
+4. **Push** to the branch: `git push origin feature/my-awesome-feature`
 5. **Open** a Pull Request
-
-### Areas to Contribute
-
-- 🐛 Bug fixes and error handling improvements
-- 📝 Documentation and example prompts
-- 🧪 Adding a testing/debugging agent
-- 🎨 Building a web UI frontend
-- 🔧 Supporting additional LLM providers
-
----
-
-## 📁 Project Structure
-
-```
-bro_code/
-├── main.py                  # CLI entry point — accepts prompts and invokes the agent graph
-├── agent/
-│   ├── __init__.py
-│   ├── graph.py             # LangGraph state graph — defines agents, nodes, edges, and compilation
-│   ├── prompts.py           # System & user prompt templates for each agent
-│   ├── states.py            # Pydantic models — Plan, TaskPlan, ImplementationTask, CoderState
-│   └── tools.py             # LangChain tools — file read/write, directory listing, path sandboxing
-├── generated_project/       # Output directory — all AI-generated project files go here
-├── resources/
-│   └── coder_buddy_diagram.png  # Architecture diagram
-├── pyproject.toml           # Project metadata and dependencies (primary)
-├── requirements.txt         # Dependency list (pip compatibility fallback)
-├── .env                     # Environment variables (GROQ_API_KEY) — not committed
-└── .gitignore
-```
 
 ---
 

@@ -1,10 +1,20 @@
 import pathlib
+import shutil
 import subprocess
-from typing import Tuple
+from typing import Tuple, Optional
 
 from langchain_core.tools import tool
 
 PROJECT_ROOT = pathlib.Path.cwd() / "generated_project"
+
+# Module-level event queue for pushing file-creation events to SSE stream
+_event_queue = None
+
+
+def set_event_queue(q):
+    """Set the event queue for streaming file creation events."""
+    global _event_queue
+    _event_queue = q
 
 
 def safe_path_for_project(path: str) -> pathlib.Path:
@@ -21,6 +31,16 @@ def write_file(path: str, content: str) -> str:
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         f.write(content)
+
+    # Push file_created event to SSE queue if available
+    if _event_queue is not None:
+        relative_path = str(p.relative_to(PROJECT_ROOT)).replace("\\", "/")
+        _event_queue.put({
+            "type": "file_created",
+            "path": relative_path,
+            "content": content
+        })
+
     return f"WROTE:{p}"
 
 
@@ -49,6 +69,7 @@ def list_files(directory: str = ".") -> str:
     files = [str(f.relative_to(PROJECT_ROOT)) for f in p.glob("**/*") if f.is_file()]
     return "\n".join(files) if files else "No files found."
 
+
 @tool
 def run_cmd(cmd: str, cwd: str = None, timeout: int = 30) -> Tuple[int, str, str]:
     """Runs a shell command in the specified directory and returns the result."""
@@ -58,5 +79,8 @@ def run_cmd(cmd: str, cwd: str = None, timeout: int = 30) -> Tuple[int, str, str
 
 
 def init_project_root():
+    """Clean and recreate the project root directory."""
+    if PROJECT_ROOT.exists():
+        shutil.rmtree(PROJECT_ROOT)
     PROJECT_ROOT.mkdir(parents=True, exist_ok=True)
     return str(PROJECT_ROOT)
